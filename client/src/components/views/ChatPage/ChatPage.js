@@ -1,22 +1,40 @@
 import React, { useEffect, useRef, useState} from 'react'
+import {useDispatch, useSelector} from 'react-redux';
 import { Form, Icon, Input, Button, Row, Col, } from 'antd';
 import io from "socket.io-client";
 import  moment  from "moment";
- 
+import {getChats,afterPostMessage} from '../../../_actions/chat_actions';
+import ChatCard from './Sections/ChatCard';
 
 const socket = io("http://localhost:5000");
+//이설정을 해줘야 서버의 socket이랑 연결될수있음, 
+//이설정해놓고 별도의 connection작성코드는필요없고, 바로 socket.on ,socket.emit 사용하면 서버와 통신가능함 
 
 function ChatPage({user}) {
+    const dispatch = useDispatch();//액션을 손쉽게 dispatch시킬수있음
+    const chats = useSelector(state => state.chats) //chat이라는 리듀서의 state값에 손쉽게 접근가능
 
     const messagesEnd = useRef(null);
     const [chatMessagee, setchatMessagee] = useState("");
 
     useEffect(()=>{
-      
+        
+        dispatch(getChats()); //getchats액션함수를 발동시켜서,서버에서 chatData를 가져와 chat리듀서에서의 state에 저장한다.
+                                //스토어의 state값을 map을 이용해 렌더시킨다!!!.
         socket.on("Output Chat Message", messageFromBackEnd => {
-            console.log(messageFromBackEnd)
+            dispatch(afterPostMessage(messageFromBackEnd));  //서버로부터의 data를 파라미터로 넣어준다.messageFromBackEnd안에는 내가 방금입력창에 입력한 메세지관련정보가들어있다
+                                                            //그럼 afterpostmessage()액션함수가 받아 chat리듀서에서의 스토어의 state에 방금입력한 값을 추가한다.
         })
     },[])
+
+    
+
+    
+    const renderCards = () =>
+    chats.chat
+        && chats.chat.map((chat) => (
+            <ChatCard key={chat._id}  {...chat} />
+        ));
 
 
     const handleSearchChange =(e) => {
@@ -32,8 +50,10 @@ function ChatPage({user}) {
         let userName = user.userData.name;
         let userImage = user.userData.image;
         let nowTime = moment();
-        let type = "Image"
+        let type = "Text"
 
+        //연결된 소켓으로 Input Chat Message란 이름의 이벤트를 정보를 담아서 보낸다
+        //서버에선 socket.on(Input Chat Messge....)으로 해당 이벤트의 emit()을 통해 보내진 데이터를 받을수있다.
         socket.emit("Input Chat Message", {
             chatMessage,
             userId,
@@ -53,9 +73,8 @@ function ChatPage({user}) {
 
         <div style={{ maxWidth: '800px', margin: '0 auto' }}>
             <div className="infinite-container">
-                {/* {this.props.chats && (
-                    <div>{this.renderCards()}</div>
-                )} */}
+            {chats && renderCards()}
+            가나다
                 <div
                     ref={messagesEnd}
                     style={{ float: "left", clear: "both" }}

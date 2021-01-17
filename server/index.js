@@ -47,7 +47,7 @@ app.use(cookieParser());
 const { Chat } = require("./models/Chat");
 
 app.use('/api/users', require('./routes/users'));
-
+app.use('/api/chat', require('./routes/chat'))
 /////////// socket.io를 위한 서버처리 2
 io.on("connection", socket => {
   socket.on("Input Chat Message", msg => {
