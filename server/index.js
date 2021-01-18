@@ -6,6 +6,7 @@ const cors = require('cors')
 const bodyParser = require("body-parser");
 const cookieParser = require("cookie-parser");
 
+
 /////////// socket.io를 위한 서버처리 1
 const server = require("http").createServer(app);
 const io = require('socket.io')(server, {
@@ -45,9 +46,48 @@ app.use(cookieParser());
 
 
 const { Chat } = require("./models/Chat");
+const {auth} = require("./middleware/auth");
 
 app.use('/api/users', require('./routes/users'));
 app.use('/api/chat', require('./routes/chat'))
+/////////////////////////////////////////////////
+//채팅 파일 업로드 처리를 위한것
+//npm install multer --save
+const multer = require("multer");
+
+
+var storage = multer.diskStorage({
+  destination: function(req, file, cb){
+    cb(null,'uploads/')
+  },
+  filename: function(req, file, cb){
+    cb(null, `${Date.now()}_${file.originalname}`)
+  },
+  fileFilter: (req, res, cb)=>{
+    const ext = path.extname(file.originalname)
+    
+    if(ext !== '.jpg' && ext !== '.png' && ext !== '.mp4'){
+      return cb(res.status(400).end('only jpg,png,mp4 is allowed'), false)
+    }
+    cb(null, true)
+  }
+})
+
+var upload = multer({storage:storage}).single('file');
+//post 처리안에서 upload()함수를 발동시키면, client에서 온 파일data를
+//uploads폴더안에 저장시키고, uploads폴더안의 파일 path를 응답한다.
+app.post("/api/chat/uploadfiles",auth, (req, res)=>{
+  upload(req, res, err => {
+    if(err){
+      return res.json({ success: false, err})
+    }
+    return res.json({success: true, url: res.req.file.path}); //uploads폴더안에있는 파일경로req.file.path를 client측에 보내줌
+  })
+});
+///////////////////////////////////////////////////////////////
+
+
+
 /////////// socket.io를 위한 서버처리 2
 io.on("connection", socket => {
   socket.on("Input Chat Message", msg => {
@@ -79,7 +119,7 @@ io.on("connection", socket => {
 
 //use this to show the image you have in node js server to client (react js)
 //https://stackoverflow.com/questions/48914987/send-image-path-from-node-js-express-server-to-react-client
-app.use('/uploads', express.static('uploads'));
+app.use('/uploads', express.static('uploads')); // string의 /upload/를만나면 실제 uploads폴더와 매칭시켜준다. 우리의 파일을 정상적으로 렌더시키기위한 조치임
 
 // Serve static assets if in production
 if (process.env.NODE_ENV === "production") {

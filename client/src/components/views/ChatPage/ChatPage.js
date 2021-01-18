@@ -5,6 +5,8 @@ import io from "socket.io-client";
 import  moment  from "moment";
 import {getChats,afterPostMessage} from '../../../_actions/chat_actions';
 import ChatCard from './Sections/ChatCard';
+import Dropzone from 'react-dropzone';//npm i react-dropzone
+import axios from 'axios';
 
 const socket = io("http://localhost:5000");
 //이설정을 해줘야 서버의 socket이랑 연결될수있음, 
@@ -22,10 +24,16 @@ function ChatPage({user}) {
         dispatch(getChats()); //getchats액션함수를 발동시켜서,서버에서 chatData를 가져와 chat리듀서에서의 state에 저장한다.
                                 //스토어의 state값을 map을 이용해 렌더시킨다!!!.
         socket.on("Output Chat Message", messageFromBackEnd => {
-            dispatch(afterPostMessage(messageFromBackEnd));  //서버로부터의 data를 파라미터로 넣어준다.messageFromBackEnd안에는 내가 방금입력창에 입력한 메세지관련정보가들어있다
+            dispatch(afterPostMessage(messageFromBackEnd));  //서버로부터의 data를 파라미터로 넣어준다.messageFromBackEnd안에는 내가 방금입력창에 입력한 메세지Or File관련정보가들어있다
                                                             //그럼 afterpostmessage()액션함수가 받아 chat리듀서에서의 스토어의 state에 방금입력한 값을 추가한다.
         })
     },[])
+
+
+    useEffect(()=>{
+        messagesEnd.current.scrollIntoView({behavior: 'smooth'}) //스크롤설정2.이걸해줘야 새롭게 추가되는 채팅 data에 맞춰 스크롤이 그에맞춰내려감
+    },)
+
 
     
 
@@ -35,7 +43,41 @@ function ChatPage({user}) {
         && chats.chat.map((chat) => (
             <ChatCard key={chat._id}  {...chat} />
         ));
+    
+        
+    const onDrop = (files) =>{
+        let formData = new FormData;
 
+        formData.append("file", files[0]);
+        
+        const config = { //파일데이터를 보낼때 필요
+            header : { 'content-type ': 'multipart/form-data'}
+        }
+
+        axios.post('/api/chat/uploadfiles', formData, config)
+        .then(response =>{
+            if(response.data.success){
+               
+                let chatMessage = response.data.url; //파일에 대한 경로, String값을 넣어줌
+                let userId =   user.userData._id
+                let userName = user.userData.name;
+                let userImage = user.userData.image;
+                let nowTime = moment();
+                let type = "VideoOrImage"
+
+
+                socket.emit("Input Chat Message", {
+                    chatMessage,
+                    userId,
+                    userName,
+                    userImage,
+                    nowTime,
+                    type
+                });
+            }
+        })
+       
+    }
 
     const handleSearchChange =(e) => {
         setchatMessagee(e.target.value);
@@ -72,7 +114,7 @@ function ChatPage({user}) {
         </div>
 
         <div style={{ maxWidth: '800px', margin: '0 auto' }}>
-            <div className="infinite-container">
+            <div className="infinite-container" style={{ height: '500px', overflow:'scroll'}}> {/*스트롤 설정1 */} 
             {chats && renderCards()}
             가나다
                 <div
@@ -94,7 +136,18 @@ function ChatPage({user}) {
                         />
                     </Col>
                     <Col span={2}>
-                        
+                    <Dropzone onDrop={onDrop}>
+                                    {({ getRootProps, getInputProps }) => (
+                                        <section>
+                                            <div {...getRootProps()}>
+                                                <input {...getInputProps()} />
+                                                <Button>
+                                                    <Icon type="upload" />
+                                                </Button>
+                                            </div>
+                                        </section>
+                                    )}
+                                </Dropzone>
                     </Col>
 
                     <Col span={4}>
